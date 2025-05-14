@@ -50,10 +50,10 @@ def get_zotero_corpus(id:str,key:str) -> list[dict]:
 
 # 获取标题，下载时间，摘要
 def choose_corpus(corpus:list[dict]) -> dict:
-    new_corpus = {}
+    new_corpus = []
     for c in corpus:
-        c_dict = {'key':c['key'], 'title':c['data']['title'], 'addedDate':c['data']['dateAdded'], 'abstractNote':c['data']['abstractNote']}
-        new_corpus[c['key']]=c_dict
+        c_dict = {'key':c['key'], 'title':c['data']['title'], 'dateAdded':c['data']['dateAdded'], 'abstractNote':c['data']['abstractNote']}
+        new_corpus.append(c_dict)
     return new_corpus
 
 def get_authors(authors, first_author = False):
@@ -187,7 +187,7 @@ if __name__ == '__main__':
           exit(0)
     else:
         logger.info("Reranking papers...")
-        # papers = rerank_paper(papers, corpus)
+        papers = rerank_paper(papers, corpus)
         if args.max_paper_num != -1:
             papers = papers[:args.max_paper_num]
         if args.use_llm_api:
