@@ -1,0 +1,149 @@
+<!DOCTYPE HTML>
+<html>
+
+<head>
+    <style>
+        .container {
+            position: relative;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .header-row {
+            display: flex;
+            align-items: center;
+            /* 垂直居中 */
+            gap: 20px;
+            /* 左右间距更清晰 */
+        }
+
+        .logo-wrapper {
+            flex-grow: 1;
+            text-align: center;
+            /* 水平居中 */
+        }
+
+        .sidebar {
+            /* 左侧导航栏 */
+            flex: 0 0 160px;
+            border: 1px solid #ccc;
+            padding: 10px;
+            background-color: #f9f9f9;
+            border-radius: 10px;
+            text-align: center;
+        }
+
+        .sidebar a {
+            /* 导航栏文字 */
+            display: block;
+            margin-bottom: 10px;
+            text-decoration: none;
+            color: #333;
+        }
+
+        .logo {
+
+            width: 450px;
+            /* 原尺寸 *3 */
+            height: auto;
+        }
+
+        .content-wrapper {
+            clear: both;
+            text-align: left;
+            /* 内容左对齐 */
+        }
+
+        .star-wrapper {
+            font-size: 1.3em;
+            line-height: 1;
+            display: inline-flex;
+            align-items: left;
+        }
+
+        .half-star {
+            /* 半星 */
+            display: inline-block;
+            width: 0.5em;
+            overflow: hidden;
+            white-space: nowrap;
+            vertical-align: middle;
+        }
+
+        .full-star {
+            /* 全星 */
+            vertical-align: middle;
+        }
+
+        .label {
+            display: inline-flex;
+            padding: 8px 12px;
+            align-items: center;
+            background-color: #5bc0de;
+            /* 蓝色主题色 */
+            color: white;
+            margin-right: 8px; 
+            height: 4px; 
+            font-size: 10px;
+            font-weight: 500;
+            border-radius: 50px;
+            text-align: center;
+            white-space: nowrap;
+        }
+
+        .pdf {
+            display: inline-block;
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: bold;
+            color: #fff;
+            background-color: #4A90E2;
+            padding: 8px 16px;
+            border-radius: 4px;
+        }
+
+        .code {
+            display: inline-block;
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: bold;
+            color: #fff;
+            background-color: #5bc0de;
+            padding: 8px 16px;
+            border-radius: 4px;
+            margin-left: 8px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="container">
+        <!-- 头部区域：左侧导航 + Logo -->
+        <div class="header-row">
+            <!-- 左侧导航栏 -->
+            <div class="sidebar">
+                <a href="{field_recommend}">专业领域推荐</a>
+                <a href="{article_recommend}">热门文章推荐</a>
+            </div>
+
+            <!-- 居中的Logo -->
+            <div class="logo-wrapper">
+                <img src={logo} alt="Product Logo" class="logo">
+            </div>
+        </div>
+
+        <!-- 原始内容占位符 -->
+        <div class="content-wrapper">
+            __CONTENT__
+        </div>
+    </div>
+
+    <br><br>
+    <div>
+        To unsubscribe, remove your email in your Github Action setting.
+    </div>
+
+</body>
+
+</html>
