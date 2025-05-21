@@ -82,6 +82,8 @@ def get_arxiv_paper(query: str, debug: bool = False, max_results: int = 30) -> l
     for result in search_engine.results():
         # 将论文封装成 ArxivPaper 对象
         paper = ArxivPaper(result)
+        if debug:  # 仅在调试模式下打印标签
+            logger.debug(f"Generated labels for {paper.title}: {paper.labels}")
         papers.append(paper)
         
     return papers
@@ -122,7 +124,8 @@ if __name__ == '__main__':
     add_argument('--smtp_server', type=str,default='smtp.qq.com', help='SMTP server')
     add_argument('--smtp_port', type=int, default='465', help='SMTP port')
     add_argument('--sender', type=str, default='1812291127@qq.com', help='Sender email address')
-    add_argument('--receiver', type=str,  default='["51275903106@stu.ecnu.edu.cn"]', help='Receiver email address')
+    #add_argument('--receiver', type=str,  default='["51275903106@stu.ecnu.edu.cn"]', help='Receiver email address')
+    add_argument('--receiver', type=str, default='["51275903066@stu.ecnu.edu.cn"]', help='Receiver email address')
     add_argument('--sender_password', type=str, default='xdoimelilwcxdecb', help='Sender email password')
     add_argument(
         "--use_llm_api",
@@ -134,7 +137,8 @@ if __name__ == '__main__':
         "--openai_api_key",
         type=str,
         help="OpenAI API key",
-        default="sk-37ca05e6889e4d61aa2a08cc1d55339c",
+        #default="sk-37ca05e6889e4d61aa2a08cc1d55339c",
+        default="sk-4a5f15f1eb2c48eea47422b2b4d26669",
     )
     add_argument(
         "--openai_api_base",
@@ -180,6 +184,9 @@ if __name__ == '__main__':
     corpus = choose_corpus(corpus)
 
     logger.info("Retrieving Arxiv papers...")
+    if args.use_llm_api:
+        set_global_llm(api_key=args.openai_api_key, base_url=args.openai_api_base, model=args.model_name,
+                       lang=args.language)
     papers = get_arxiv_paper(args.arxiv_query, args.debug,max_results=args.max_paper_num)
     if len(papers) == 0:
         logger.info("No new papers found. Yesterday maybe a holiday and no one submit their work :). If this is not the case, please check the ARXIV_QUERY.")
@@ -196,9 +203,13 @@ if __name__ == '__main__':
         else:
             logger.info("Using Local LLM as global LLM.")
             set_global_llm(lang=args.language)
-
+    # 测试标签是否生成
+    if args.debug:
+        for paper in papers:
+            logger.debug(f"Paper: {paper.title}")
+            logger.debug(f"Labels: {paper.labels}")
+    # end
     html = render_email(papers)
     logger.info("Sending email...")
     send_email(args.sender, args.receiver, args.sender_password, args.smtp_server, args.smtp_port, html)
     logger.success("Email sent successfully! If you don't receive the email, please check the configuration and the junk box.")
-
