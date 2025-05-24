@@ -15,6 +15,7 @@ from tempfile import mkstemp
 from paper import ArxivPaper
 from llm import set_global_llm
 import feedparser
+import json
 
 def get_zotero_corpus(id:str,key:str) -> list[dict]:
     zot = zotero.Zotero(id, 'user', key)
@@ -56,10 +57,30 @@ def choose_corpus(corpus:list[dict]) -> dict:
         new_corpus.append(c_dict)
     return new_corpus
 
-def generate_search_keywords(corpus:list[dict], llm_api_key:str, llm_api_base:str, llm_model:str) -> list[str]:    
-    # 设置OpenAI API
-    openai.api_key = llm_api_key
-    openai.api_base = llm_api_base
+def generate_search_keywords(corpus:list[dict], llm_instance=None) -> list[str]:
+    """
+    使用LLM分析用户最近阅读的文献，生成检索关键词
+    
+    Args:
+        corpus: 筛选后的文献语料库
+        llm_instance: LLM实例，如果为None则使用全局实例
+        
+    Returns:
+        生成的关键词列表
+    """
+    logger.info("正在使用LLM生成检索关键词...")
+    
+    # 获取LLM实例
+    if llm_instance is None:
+        from llm import get_llm
+        llm_instance = get_llm()
+    
+    # 如果语料库为空，返回默认关键词
+    if not corpus:
+        default_keywords = ["time series", "machine learning", "deep learning", 
+                           "neural networks", "data mining", "predictive analytics"]
+        logger.warning("语料库为空，使用默认关键词")
+        return default_keywords
     
     # 准备提示词
     recent_papers = "\n\n".join([
@@ -67,41 +88,144 @@ def generate_search_keywords(corpus:list[dict], llm_api_key:str, llm_api_base:st
         for paper in corpus[:10]  # 只使用最近的10篇文章
     ])
     
-    prompt = f"""As an academic search expert, I need you to analyze the following recently read academic papers and extract keywords and key phrases that represent my research interests. 
+    prompt = """
+As an academic search expert, I need you to analyze the following recently read academic papers and extract keywords and key phrases that represent my research interests. 
 These keywords will be used to construct arXiv search queries to find the latest related papers.
 
 Below are the papers I've recently read:
-{recent_papers}
+{papers}
 
 Please extract 10-15 keywords and phrases that best represent my research interests. The keywords should:
 1. Include domain-specific terms, method names, research objectives, etc.
 2. Include both broad field keywords and specific technical terms
 3. Be sorted by importance
 
-Please return only the list of keywords, one keyword per line, without adding numbers or any other text.
-"""
+IMPORTANT: Your response must STRICTLY follow this JSON format:
+{{
+  "keywords": [
+    "keyword1",
+    "keyword2",
+    "keyword3",
+    ...
+  ]
+}}
 
-    # 调用LLM API
-    try:
-        response = openai.ChatCompletion.create(
-            model=llm_model,
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0.3,
-            max_tokens=300
-        )
-        
-        # 处理回复
-        keywords_text = response.choices[0].message.content.strip()
-        keywords = [kw.strip() for kw in keywords_text.split('\n') if kw.strip()]
-        
-        logger.info(f"成功生成了{len(keywords)}个检索关键词")
-        logger.debug(f"生成的关键词: {', '.join(keywords[:5])}...")
-        return keywords
+DO NOT include any explanations, notes, or additional text outside of this JSON structure.
+""".format(papers=recent_papers)
+
+    # 最大重试次数
+    max_retries = 3
+    retry_count = 0
+    default_keywords = ["time series", "machine learning", "deep learning", 
+                       "neural networks", "data mining", "predictive analytics"]
     
-    except Exception as e:
-        logger.error(f"生成关键词时出错: {e}")
-        return ["time series", "machine learning", "deep learning"]  # 提供一些默认关键词
+    while retry_count < max_retries:
+        try:
+            # 使用llm.py中的接口调用LLM
+            messages = [{"role": "user", "content": prompt}]
+            response_text = llm_instance.generate(messages)
+            
+            # 处理回复
+            try:
+                # 尝试解析JSON响应
+                response_json = json.loads(response_text)
+                keywords = response_json.get("keywords", [])
+                
+                # 验证关键词列表
+                if not keywords or not isinstance(keywords, list):
+                    raise ValueError("关键词列表为空或格式不正确")
+                
+                logger.info(f"成功生成了{len(keywords)}个检索关键词")
+                logger.debug(f"生成的关键词: {', '.join(keywords[:5])}...")
+                return keywords
+                
+            except json.JSONDecodeError:
+                # 如果无法解析JSON，尝试使用正则表达式提取关键词
+                logger.warning("无法解析LLM返回的JSON，尝试使用正则表达式提取关键词")
+                import re
+                # 尝试提取按行分隔的关键词列表
+                lines = [line.strip() for line in response_text.split('\n') if line.strip()]
+                
+                # 去除可能的编号和其他标记
+                keywords = []
+                for line in lines:
+                    # 去除可能的编号、引号、破折号等
+                    cleaned = re.sub(r'^[\d\.\"\'\-\*]+\s*', '', line).strip()
+                    if cleaned:
+                        keywords.append(cleaned)
+                
+                if keywords:
+                    logger.info(f"使用正则表达式提取了{len(keywords)}个关键词")
+                    return keywords
+                
+                raise ValueError("无法从响应中提取关键词")
+                
+        except Exception as e:
+            retry_count += 1
+            logger.warning(f"第{retry_count}次尝试生成关键词失败: {e}")
+            if retry_count >= max_retries:
+                logger.error(f"达到最大重试次数({max_retries})，使用默认关键词")
+                return default_keywords
+            
+            # 短暂等待后重试
+            import time
+            time.sleep(2)
+    
+    # 如果所有尝试都失败，返回默认关键词
+    return default_keywords
 
+def build_arxiv_query(keywords:list[str], max_terms:int=8) -> str:
+    """
+    基于关键词构建arXiv检索式
+    
+    Args:
+        keywords: 关键词列表
+        max_terms: 最大使用的关键词数量
+        
+    Returns:
+        arXiv检索式
+    """
+    # 确保有关键词可用
+    if not keywords:
+        default_query = "ti:\"machine learning\" OR ti:\"deep learning\" OR ti:\"time series\""
+        logger.warning(f"关键词列表为空，使用默认检索式: {default_query}")
+        return default_query
+    
+    # 选择最重要的几个关键词（假设按重要性排序）
+    selected_keywords = keywords[:min(len(keywords), max_terms)]
+    
+    # 构建高级搜索查询
+    try:
+        # 标题或摘要中包含关键词，使用OR连接
+        query_parts = []
+        
+        # 添加标题和摘要搜索
+        for keyword in selected_keywords:
+            # 确保关键词是字符串
+            if not isinstance(keyword, str) or not keyword.strip():
+                continue
+                
+            # 如果关键词包含空格，添加引号
+            if ' ' in keyword:
+                keyword = f'"{keyword}"'
+            query_parts.append(f"ti:{keyword} OR abs:{keyword}")
+        
+        # 确保有有效的查询部分
+        if not query_parts:
+            default_query = "ti:\"machine learning\" OR ti:\"deep learning\" OR ti:\"time series\""
+            logger.warning(f"无法创建有效的查询部分，使用默认检索式: {default_query}")
+            return default_query
+            
+        # 连接所有查询部分
+        query = " OR ".join(query_parts)
+        
+        logger.info(f"构建的arXiv检索式: {query}")
+        return query
+        
+    except Exception as e:
+        default_query = "ti:\"machine learning\" OR ti:\"deep learning\" OR ti:\"time series\""
+        logger.error(f"构建检索式时出错: {e}，使用默认检索式: {default_query}")
+        return default_query
 
 def get_authors(authors, first_author = False):
     output = str()
@@ -172,6 +296,7 @@ if __name__ == '__main__':
     add_argument('--sender', type=str, default='1812291127@qq.com', help='Sender email address')
     add_argument('--receiver', type=str,  default='["51275903106@stu.ecnu.edu.cn"]', help='Receiver email address')
     add_argument('--sender_password', type=str, default='xdoimelilwcxdecb', help='Sender email password')
+    add_argument('--use_llm_keywords', type=bool, help='If get no arxiv paper, send empty email',default=False)
     add_argument(
         "--use_llm_api",
         type=bool,
@@ -225,10 +350,17 @@ if __name__ == '__main__':
     #     corpus = choose_corpus(corpus)
     #     logger.info(f"Remaining {len(corpus)} papers after filtering.")
     # # ending
-    corpus = choose_corpus(corpus)
+    # corpus = choose_corpus(corpus)
+    logger.info("Generate Keywords...")
+    keywords = generate_search_keywords(corpus)
+    query = build_arxiv_query(keywords, args.max_keywords)
 
     logger.info("Retrieving Arxiv papers...")
-    papers = get_arxiv_paper(args.arxiv_query, args.debug,max_results=args.max_paper_num)
+    if args.use_llm_keywords:
+        papers = get_arxiv_paper(query, args.debug, max_results=args.max_paper_num)
+    else:
+        papers = get_arxiv_paper(args.arxiv_query, args.debug, max_results=args.max_paper_num)
+
     if len(papers) == 0:
         logger.info("No new papers found. Yesterday maybe a holiday and no one submit their work :). If this is not the case, please check the ARXIV_QUERY.")
         if not args.send_empty:
