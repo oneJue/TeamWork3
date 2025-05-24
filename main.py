@@ -15,6 +15,7 @@ from tempfile import mkstemp
 from paper import ArxivPaper
 from llm import set_global_llm
 import feedparser
+from search import generate_search_keywords, build_arxiv_query
 
 def get_zotero_corpus(id:str,key:str) -> list[dict]:
     zot = zotero.Zotero(id, 'user', key)
@@ -63,6 +64,7 @@ def get_authors(authors, first_author = False):
     else:
         output = authors[0]
     return output
+    
 def sort_papers(papers):
     output = dict()
     keys = list(papers.keys())
@@ -124,6 +126,7 @@ if __name__ == '__main__':
     add_argument('--sender', type=str, default='1812291127@qq.com', help='Sender email address')
     add_argument('--receiver', type=str,  default='["51275903106@stu.ecnu.edu.cn"]', help='Receiver email address')
     add_argument('--sender_password', type=str, default='xdoimelilwcxdecb', help='Sender email password')
+    add_argument('--use_llm_keywords', type=bool, help='If get no arxiv paper, send empty email',default=False)
     add_argument(
         "--use_llm_api",
         type=bool,
@@ -177,10 +180,17 @@ if __name__ == '__main__':
     #     corpus = choose_corpus(corpus)
     #     logger.info(f"Remaining {len(corpus)} papers after filtering.")
     # # ending
-    corpus = choose_corpus(corpus)
+    # corpus = choose_corpus(corpus)
+    logger.info("Generate Keywords...")
+    keywords = generate_search_keywords(corpus)
+    query = build_arxiv_query(keywords, args.max_keywords)
 
     logger.info("Retrieving Arxiv papers...")
-    papers = get_arxiv_paper(args.arxiv_query, args.debug,max_results=args.max_paper_num)
+    if args.use_llm_keywords:
+        papers = get_arxiv_paper(query, args.debug, max_results=args.max_paper_num)
+    else:
+        papers = get_arxiv_paper(args.arxiv_query, args.debug, max_results=args.max_paper_num)
+
     if len(papers) == 0:
         logger.info("No new papers found. Yesterday maybe a holiday and no one submit their work :). If this is not the case, please check the ARXIV_QUERY.")
         if not args.send_empty:
