@@ -48,13 +48,60 @@ def get_zotero_corpus(id:str,key:str) -> list[dict]:
 #     os.remove(filename)
 #     return new_corpus
 
-# Get title, download time, and abstract
+# 获取标题，下载时间，摘要
 def choose_corpus(corpus:list[dict]) -> dict:
     new_corpus = []
     for c in corpus:
         c_dict = {'key':c['key'], 'title':c['data']['title'], 'dateAdded':c['data']['dateAdded'], 'abstractNote':c['data']['abstractNote']}
         new_corpus.append(c_dict)
     return new_corpus
+
+def generate_search_keywords(corpus:list[dict], llm_api_key:str, llm_api_base:str, llm_model:str) -> list[str]:    
+    # 设置OpenAI API
+    openai.api_key = llm_api_key
+    openai.api_base = llm_api_base
+    
+    # 准备提示词
+    recent_papers = "\n\n".join([
+        f"Title: {paper['title']}\nAbstract: {paper['abstractNote'][:500]}..."  # 限制摘要长度
+        for paper in corpus[:10]  # 只使用最近的10篇文章
+    ])
+    
+    prompt = f"""作为一名学术检索专家，我需要你分析以下最近阅读的学术论文，提取出能够代表我研究兴趣的关键词和关键短语。
+这些关键词将用于构建arXiv检索式，以查找相关的最新论文。
+
+以下是我最近阅读的论文：
+{recent_papers}
+
+请提取10-15个最能代表我研究兴趣的关键词和短语。关键词应当：
+1. 包括领域特定术语、方法名称、研究目标等
+2. 既有宽泛的领域关键词，也有具体的专业术语
+3. 按重要性排序
+
+只需返回关键词列表，每行一个关键词，不要添加编号或其他文本。
+"""
+
+    # 调用LLM API
+    try:
+        response = openai.ChatCompletion.create(
+            model=llm_model,
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.3,
+            max_tokens=300
+        )
+        
+        # 处理回复
+        keywords_text = response.choices[0].message.content.strip()
+        keywords = [kw.strip() for kw in keywords_text.split('\n') if kw.strip()]
+        
+        logger.info(f"成功生成了{len(keywords)}个检索关键词")
+        logger.debug(f"生成的关键词: {', '.join(keywords[:5])}...")
+        return keywords
+    
+    except Exception as e:
+        logger.error(f"生成关键词时出错: {e}")
+        return ["time series", "machine learning", "deep learning"]  # 提供一些默认关键词
+
 
 def get_authors(authors, first_author = False):
     output = str()
@@ -63,6 +110,7 @@ def get_authors(authors, first_author = False):
     else:
         output = authors[0]
     return output
+    
 def sort_papers(papers):
     output = dict()
     keys = list(papers.keys())
@@ -72,7 +120,7 @@ def sort_papers(papers):
     return output    
 
 def get_arxiv_paper(query: str, debug: bool = False, max_results: int = 30) -> list[ArxivPaper]:
-    # Create an arxiv search engine instance
+    # 创建 arxiv 搜索引擎实例
     search_engine = arxiv.Search(
         query=query,
         max_results=max_results,
@@ -80,7 +128,7 @@ def get_arxiv_paper(query: str, debug: bool = False, max_results: int = 30) -> l
     )
     papers = []
     for result in search_engine.results():
-        # Wrap the paper as an ArxivPaper object
+        # 将论文封装成 ArxivPaper 对象
         paper = ArxivPaper(result)
         papers.append(paper)
         
