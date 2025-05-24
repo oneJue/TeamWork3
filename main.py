@@ -67,18 +67,18 @@ def generate_search_keywords(corpus:list[dict], llm_api_key:str, llm_api_base:st
         for paper in corpus[:10]  # 只使用最近的10篇文章
     ])
     
-    prompt = f"""作为一名学术检索专家，我需要你分析以下最近阅读的学术论文，提取出能够代表我研究兴趣的关键词和关键短语。
-这些关键词将用于构建arXiv检索式，以查找相关的最新论文。
+    prompt = f"""As an academic search expert, I need you to analyze the following recently read academic papers and extract keywords and key phrases that represent my research interests. 
+These keywords will be used to construct arXiv search queries to find the latest related papers.
 
-以下是我最近阅读的论文：
+Below are the papers I've recently read:
 {recent_papers}
 
-请提取10-15个最能代表我研究兴趣的关键词和短语。关键词应当：
-1. 包括领域特定术语、方法名称、研究目标等
-2. 既有宽泛的领域关键词，也有具体的专业术语
-3. 按重要性排序
+Please extract 10-15 keywords and phrases that best represent my research interests. The keywords should:
+1. Include domain-specific terms, method names, research objectives, etc.
+2. Include both broad field keywords and specific technical terms
+3. Be sorted by importance
 
-只需返回关键词列表，每行一个关键词，不要添加编号或其他文本。
+Please return only the list of keywords, one keyword per line, without adding numbers or any other text.
 """
 
     # 调用LLM API
