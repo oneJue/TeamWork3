@@ -48,7 +48,7 @@ def get_zotero_corpus(id:str,key:str) -> list[dict]:
 #     os.remove(filename)
 #     return new_corpus
 
-# 获取标题，下载时间，摘要
+# Get title, download time, and abstract
 def choose_corpus(corpus:list[dict]) -> dict:
     new_corpus = []
     for c in corpus:
@@ -72,7 +72,7 @@ def sort_papers(papers):
     return output    
 
 def get_arxiv_paper(query: str, debug: bool = False, max_results: int = 30) -> list[ArxivPaper]:
-    # 创建 arxiv 搜索引擎实例
+    # Create an arxiv search engine instance
     search_engine = arxiv.Search(
         query=query,
         max_results=max_results,
@@ -80,7 +80,7 @@ def get_arxiv_paper(query: str, debug: bool = False, max_results: int = 30) -> l
     )
     papers = []
     for result in search_engine.results():
-        # 将论文封装成 ArxivPaper 对象
+        # Wrap the paper as an ArxivPaper object
         paper = ArxivPaper(result)
         papers.append(paper)
         
