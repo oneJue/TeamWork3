@@ -30,7 +30,7 @@ def generate_search_keywords(corpus:list[dict], llm_instance=None) -> list[str]:
     
     # 准备提示词
     recent_papers = "\n\n".join([
-        f"Title: {paper['title']}\nAbstract: {paper['abstractNote'][:500]}..."  # 限制摘要长度
+        f"Title: {paper['data']['title']}\nAbstract: {paper['abstractNote'][:500]}..."  # 限制摘要长度
         for paper in corpus[:10]  # 只使用最近的10篇文章
     ])
     
