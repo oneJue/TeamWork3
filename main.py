@@ -182,7 +182,7 @@ if __name__ == '__main__':
     #     corpus = choose_corpus(corpus)
     #     logger.info(f"Remaining {len(corpus)} papers after filtering.")
     # # ending
-    # corpus = choose_corpus(corpus)
+    corpus = choose_corpus(corpus)
     logger.info("Generate Keywords...")
     keywords = generate_search_keywords(corpus)
     query = build_arxiv_query(keywords, args.max_keywords)
