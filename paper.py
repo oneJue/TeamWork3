@@ -11,16 +11,16 @@ from loguru import logger
 import tiktoken
 from contextlib import ExitStack
 
-
-
 class ArxivPaper:
     def __init__(self,paper:arxiv.Result):
         self._paper = paper
         self.score = None
+        self._labels = None  # 初始化labels为None
     
     @property
     def title(self) -> str:
         return self._paper.title
+
     @property
     def abs_url(self) -> str:
         return str(self._paper.links[0])
@@ -39,7 +39,21 @@ class ArxivPaper:
     @property
     def authors(self) -> list[str]:
         return self._paper.authors
-    
+
+    @property
+    def labels(self) -> list[str]:
+        if self._labels is None:
+            self._generate_labels()
+        return self._labels
+
+    def _generate_labels(self) -> None:
+        """调用LLM生成标签并缓存结果"""
+        llm = get_llm()
+        self._labels = llm.generate_labels(
+            title=self.title,
+            abstract=self.summary
+        )
+
     @cached_property
     def arxiv_id(self) -> str:
         return re.sub(r'v\d+$', '', self._paper.get_short_id())
