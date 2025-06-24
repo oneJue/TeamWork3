@@ -128,8 +128,8 @@ if __name__ == '__main__':
     add_argument('--smtp_server', type=str,default='smtp.qq.com', help='SMTP server')
     add_argument('--smtp_port', type=int, default='465', help='SMTP port')
     add_argument('--sender', type=str, default='1812291127@qq.com', help='Sender email address')
-    #add_argument('--receiver', type=str,  default='["51275903106@stu.ecnu.edu.cn"]', help='Receiver email address')
-    add_argument('--receiver', type=str, default='["51275903066@stu.ecnu.edu.cn"]', help='Receiver email address')
+    add_argument('--receiver', type=str,  default='["51275903106@stu.ecnu.edu.cn"]', help='Receiver email address')
+    # add_argument('--receiver', type=str, default='["51275903066@stu.ecnu.edu.cn"]', help='Receiver email address')
     add_argument('--sender_password', type=str, default='xdoimelilwcxdecb', help='Sender email password')
     add_argument('--use_llm_keywords', type=bool, help='If get no arxiv paper, send empty email',default=False)
     add_argument(
