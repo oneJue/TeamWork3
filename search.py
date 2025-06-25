@@ -14,7 +14,7 @@ def generate_search_keywords(corpus:list[dict], llm_instance=None) -> list[str]:
     Returns:
         生成的关键词列表
     """
-    logger.info("正在使用LLM生成检索关键词...")
+    logger.info("Using LLM to generate search keywords...")
     
     # 获取LLM实例
     if llm_instance is None:
@@ -81,8 +81,8 @@ DO NOT include any explanations, notes, or additional text outside of this JSON 
                 if not keywords or not isinstance(keywords, list):
                     raise ValueError("关键词列表为空或格式不正确")
                 
-                logger.info(f"成功生成了{len(keywords)}个检索关键词")
-                logger.debug(f"生成的关键词: {', '.join(keywords[:5])}...")
+                logger.info(f"Successfully generated {len(keywords)} search keywords")
+                logger.debug(f"Generated keywords: {', '.join(keywords[:5])}...")
                 return keywords
                 
             except json.JSONDecodeError:
@@ -133,7 +133,7 @@ def build_arxiv_query(keywords:list[str], max_terms:int=8) -> str:
     # 确保有关键词可用
     if not keywords:
         default_query = "ti:\"machine learning\" OR ti:\"deep learning\" OR ti:\"time series\""
-        logger.warning(f"关键词列表为空，使用默认检索式: {default_query}")
+        logger.warning(f"The keyword list is empty, using the default search terms: {default_query}")
         return default_query
     
     # 选择最重要的几个关键词（假设按重要性排序）
@@ -158,16 +158,16 @@ def build_arxiv_query(keywords:list[str], max_terms:int=8) -> str:
         # 确保有有效的查询部分
         if not query_parts:
             default_query = "ti:\"machine learning\" OR ti:\"deep learning\" OR ti:\"time series\""
-            logger.warning(f"无法创建有效的查询部分，使用默认检索式: {default_query}")
+            logger.warning(f"Unable to create a valid query part, using default search terms: {default_query}")
             return default_query
             
         # 连接所有查询部分
         query = " OR ".join(query_parts)
         
-        logger.info(f"构建的arXiv检索式: {query}")
+        logger.info(f"Constructed arXiv search formula: {query}")
         return query
         
     except Exception as e:
         default_query = "ti:\"machine learning\" OR ti:\"deep learning\" OR ti:\"time series\""
-        logger.error(f"构建检索式时出错: {e}，使用默认检索式: {default_query}")
+        logger.error(f"Error constructing search query: {e}, using the default search query: {default_query}")
         return default_query

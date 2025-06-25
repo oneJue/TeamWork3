@@ -91,7 +91,29 @@ from typing import Optional, List
 #     import webbrowser
 #     webbrowser.open("test_email.html")
 # # -----------------------------------------------------------
+import hashlib
 
+class StringColorMapper:
+    """
+    一个将字符串映射到预定义颜色库的工具类。
+    """
+    def __init__(self,):
+       
+        self.palette = ['#ea1e63','#01bdd6','#b1e7fb','#4db151','#8cc24a','#cddc39','#ffeb3c','#ffc10a','#ff9803',
+                        '#fe5722','#6fc0b1','#b9e479','#fecdae','#f0f5de','#fee7d7','#c1fdfd']
+        self.palette_size = len(self.palette)
+
+    def get_color(self, input_string: str) -> str:
+        """
+        为一个给定的字符串获取其对应的颜色。
+        """
+        encoded_string = input_string.encode('utf-8')
+        hash_object = hashlib.sha256(encoded_string)
+        hex_digest = hash_object.hexdigest()
+        hash_int = int(hex_digest, 16)
+        index = hash_int % self.palette_size
+        return self.palette[index]
+    
 
 with open("webpages/logo.png", "rb") as image_file:
     logo_base64 = base64.b64encode(image_file.read()).decode()
@@ -106,10 +128,10 @@ with open("webpages/framework.html", "r", encoding="utf-8") as f:
 td_style : str = "font-size: 14px; color: #333; padding: 8px 0;"
 
 
-def render_sidebar(field_recommend: str = "#", article_recommend: str = "#") -> None:
-    global framework
-    framework = framework.replace('{field_recommend}', field_recommend)
-    framework = framework.replace('{article_recommend}', article_recommend)
+# def render_sidebar(field_recommend: str = "#", article_recommend: str = "#") -> None:
+#     global framework
+#     framework = framework.replace('{field_recommend}', field_recommend)
+#     framework = framework.replace('{article_recommend}', article_recommend)
 
 
 def get_empty_html() -> str:
@@ -129,7 +151,8 @@ def get_block_html(
     date: Optional[str] = None, 
     comment: Optional[str] = None,
     abs_url: Optional[str] = None, 
-    labels: Optional[List[str]] = None
+    labels: Optional[List[str]] = None,
+    color_map:  Optional[StringColorMapper] = None
 ) -> str:
     with open("webpages/block_template.html", "r", encoding="utf-8") as f:
         block_template = f.read()
@@ -143,7 +166,7 @@ def get_block_html(
     if labels and isinstance(labels, list) and len(labels) > 0:
         label_html = f'<tr><td style="{td_style}"><strong>Label: </strong>'
         for label in labels:
-            label_html += f'<span class="label">{label}</span>'
+            label_html += f'<span class="label" style="background-color:{color_map.get_color(label)}">{label}</span>'
         label_html += '</td></tr>'
     else:
         label_html = ''
@@ -186,17 +209,19 @@ def get_stars(score: float) -> str:
         return '<div class="star-wrapper">' + full_star * full_star_num + half_star * half_star_num + '</div>'
 
 
-def render_email(papers: list[ArxivPaper],field_recommend:str="#",article_recommend:str="#") -> str:
+def render_email(papers: list[ArxivPaper],field_recommend:str="#",article_recommend:str="#",papers_coarse=None) -> str:
     parts = []
     if len(papers) == 0:
         return framework.replace('__CONTENT__', get_empty_html())
 
-    render_sidebar(field_recommend=field_recommend,article_recommend=article_recommend)
+    # render_sidebar(field_recommend=field_recommend,article_recommend=article_recommend)
     papers = sorted(papers, key=lambda p: p.date, reverse=True)
+
+    color_map = StringColorMapper()
     for p in tqdm(papers, desc='Rendering Email'):
         # rate = get_stars(p.score)
         rate = '<span class="full-star">⭐</span>' * 5  # 测试用
-        labels = ["test 1","test label 2"]
+        labels = p.labels
         authors = [a.name for a in p.authors[:5]]
         authors = ', '.join(authors)
         if len(p.authors) > 5:
@@ -213,10 +238,32 @@ def render_email(papers: list[ArxivPaper],field_recommend:str="#",article_recomm
         #                             date=p.date, comment=p.comment, abs_url=p.abs_url,labels=p.labels))
         parts.append(get_block_html(title=p.title, authors=authors, rate=rate, abstract=p.summary, 
                                     pdf_url=p.pdf_url, code_url=p.code_url, affiliations=affiliations,
-                                    date=p.date, comment=p.comment, abs_url=p.abs_url,labels=labels))
+                                    date=p.date, comment=p.comment, abs_url=p.abs_url,labels=labels,color_map=color_map))
 
     content = '<br>' + '</br><br>'.join(parts) + '</br>'
-    return framework.replace('__CONTENT__', content)
+
+    coarse_parts=[]
+    papers_coarse = sorted(papers_coarse, key=lambda p: p.date, reverse=True)
+    for p in tqdm(papers_coarse, desc='Rendering Email'):
+        # rate = get_stars(p.score)
+        rate = '<span class="full-star">⭐</span>' * 5  # 测试用
+        labels = p.labels
+        authors = [a.name for a in p.authors[:5]]
+        authors = ', '.join(authors)
+        if len(p.authors) > 5:
+            authors += ', ...'
+        if p.affiliations is not None:
+            affiliations = p.affiliations[:5]
+            affiliations = ', '.join(affiliations)
+            if len(p.affiliations) > 5:
+                affiliations += ', ...'
+        else:
+            affiliations = 'Unknown Affiliation'
+        coarse_parts.append(get_block_html(title=p.title, authors=authors, rate=rate, abstract=p.summary, 
+                                    pdf_url=p.pdf_url, code_url=p.code_url, affiliations=affiliations,
+                                    date=p.date, comment=p.comment, abs_url=p.abs_url,labels=labels,color_map=color_map))
+        coarse_content = '<br>' + '</br><br>'.join(coarse_parts) + '</br>'
+    return framework.replace('__CONTENT__', content).replace('__CONTENT_FIELD__', coarse_content)
 
 
 def send_email(sender: str, receiver: str, password: str, smtp_server: str, smtp_port: int, html: str) -> None:
@@ -228,7 +275,7 @@ def send_email(sender: str, receiver: str, password: str, smtp_server: str, smtp
     logger.warning(f"receiver")
 
     try:
-        receivers = json.loads(receiver)
+        receivers = receiver
     except json.JSONDecodeError:
         logger.error("Invalid receiver format, must be a JSON list.")
         raise

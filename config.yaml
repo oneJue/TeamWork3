@@ -1,0 +1,60 @@
+
+# Zotero user ID
+zotero_id: 15385713
+
+# Zotero API key
+zotero_key: CWVYk463YUtPFKIpda7kqfKH
+
+# Zotero collection to ignore, using gitignore-style pattern.
+zotero_ignore: 
+
+# If get no arxiv paper, send empty email
+send_empty: False
+
+# Maximum number of papers to recommend
+max_paper_num: 8
+
+# Maximum number of keywords
+max_keywords: 3
+
+# Receiver email address
+arxiv_query: ti:("Time series" OR "Time-series")
+
+# SMTP server
+smtp_server: smtp.qq.com
+
+# SMTP port
+smtp_port: 465
+
+# Sender email address
+sender: 1812291127@qq.com
+
+# Sender email password
+sender_password: xdoimelilwcxdecb
+
+# Receiver email address
+receiver: ["hycheng@stu.ecnu.edu.cn"]
+
+# Whether to use LLM to generate recommended keywords
+use_llm_keywords: True
+
+# Whether to use coarse grained recommendation
+use_coarse_grained_recommendation: True
+
+# Arxiv search query for coarse grained recommendation
+domain: cat:cs.CV
+
+# Use OpenAI API to generate TLDR
+use_llm_api: True
+
+# OpenAI API key
+openai_api_key: sk-4a5f15f1eb2c48eea47422b2b4d26669
+
+# OpenAI API base URL
+openai_api_base: https://chat.ecnu.edu.cn/open/api/v1
+
+#L LM Model Name
+model_name: ecnu-plus
+
+# Language of TLDR
+language: Chinese
