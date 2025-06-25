@@ -16,7 +16,10 @@ from paper import ArxivPaper
 from llm import set_global_llm
 import feedparser
 from search import generate_search_keywords, build_arxiv_query
+import yaml
 
+
+    
 def get_zotero_corpus(id:str,key:str) -> list[dict]:
     zot = zotero.Zotero(id, 'user', key)
     collections = zot.everything(zot.collections())
@@ -114,54 +117,71 @@ def add_argument(*args, **kwargs):
             env_value = kwargs.get('type')(env_value)
         parser.set_defaults(**{arg_full_name:env_value})
 
+def update_args(args):
+    yaml_file_path = 'config.yaml'
+    flag=True
+    try:
+        # 使用 'with open' 可以确保文件被正确关闭
+        with open(yaml_file_path, 'r', encoding='utf-8') as file:
+            # 使用 safe_load 将 YAML 文件内容解析为 Python 对象
+            data = yaml.safe_load(file)
+            for key in args.__dict__.keys():
+                if args.__dict__[key] is None:
+                    if (data[key] is None or key not in data) and key!='zotero_ignore':
+                        flag=False
+                        break
+                    args.__dict__[key]=data[key]
+        1==1
+    except FileNotFoundError:
+        logger.info(f"Error: File '{yaml_file_path}' is not found.")
+    except yaml.YAMLError as e:
+        logger.info(f"Error: Error in parsing YAML file.")
+    if not flag:
+        args=None
+    return args
 
 if __name__ == '__main__':
     
-    add_argument('--zotero_id', type=str, default='15385713', help='Zotero user ID')
-    add_argument('--zotero_key', type=str, default = 'CWVYk463YUtPFKIpda7kqfKH', help='Zotero API key')
+    add_argument('--zotero_id', type=str,  help='Zotero user ID')
+    add_argument('--zotero_key', type=str, help='Zotero API key')
     add_argument('--zotero_ignore',type=str,help='Zotero collection to ignore, using gitignore-style pattern.')
-    add_argument('--send_empty', type=bool, help='If get no arxiv paper, send empty email',default=False)
-    add_argument('--max_paper_num', type=int, help='Maximum number of papers to recommend',default=2)
-    add_argument('--max_keywords', type=int, help='Maximum number of keywords',default=8)
+    add_argument('--send_empty', type=bool, help='If get no arxiv paper, send empty email')
+    add_argument('--max_paper_num', type=int, help='Maximum number of papers to recommend')
+    add_argument('--max_keywords', type=int, help='Maximum number of keywords')
+    add_argument('--domain', type=str, help='Arxiv search query')
+    add_argument('--arxiv_query', type=str, help='Arxiv search query')
+    add_argument('--smtp_server', type=str, help='SMTP server')
+    add_argument('--smtp_port', type=int, help='SMTP port')
+    add_argument('--sender', type=str, help='Sender email address')
+    add_argument('--receiver', type=str, help='Receiver email address')
+    add_argument('--sender_password', type=str, help='Sender email password')
+    add_argument('--use_llm_keywords', type=bool, help='Whether to use LLM to generate recommended keywords')
+    add_argument('--use_coarse_grained_recommendation', type=bool, help='Whether to use coarse grained recommendation')
     
-    add_argument('--arxiv_query', type=str, default='ti:("Time series" OR "Time-series")', help='Arxiv search query')
-    add_argument('--smtp_server', type=str,default='smtp.qq.com', help='SMTP server')
-    add_argument('--smtp_port', type=int, default='465', help='SMTP port')
-    add_argument('--sender', type=str, default='1812291127@qq.com', help='Sender email address')
-    add_argument('--receiver', type=str,  default='["51275903106@stu.ecnu.edu.cn"]', help='Receiver email address')
-    # add_argument('--receiver', type=str, default='["51275903066@stu.ecnu.edu.cn"]', help='Receiver email address')
-    add_argument('--sender_password', type=str, default='xdoimelilwcxdecb', help='Sender email password')
-    add_argument('--use_llm_keywords', type=bool, help='If get no arxiv paper, send empty email',default=False)
     add_argument(
         "--use_llm_api",
         type=bool,
         help="Use OpenAI API to generate TLDR",
-        default=True,
     )
     add_argument(
         "--openai_api_key",
         type=str,
         help="OpenAI API key",
-        #default="sk-37ca05e6889e4d61aa2a08cc1d55339c",
-        default="sk-4a5f15f1eb2c48eea47422b2b4d26669",
     )
     add_argument(
         "--openai_api_base",
         type=str,
         help="OpenAI API base URL",
-        default="https://chat.ecnu.edu.cn/open/api/v1",
     )
     add_argument(
         "--model_name",
         type=str,
         help="LLM Model Name",
-        default="ecnu-plus",
     )
     add_argument(
         "--language",
         type=str,
         help="Language of TLDR",
-        default="Chinese",
     )
     parser.add_argument('--debug', action='store_true', help='Debug mode')
     args = parser.parse_args()
@@ -176,6 +196,10 @@ if __name__ == '__main__':
         logger.remove()
         logger.add(sys.stdout, level="INFO")
 
+    args = update_args(args)
+    if args is None:
+        logger.info("Lack of key configuration")
+        exit(0)
     # starting
     logger.info("Retrieving Zotero corpus...")
     corpus = get_zotero_corpus(args.zotero_id, args.zotero_key)
@@ -187,41 +211,50 @@ if __name__ == '__main__':
     #     logger.info(f"Remaining {len(corpus)} papers after filtering.")
     # # ending
     # corpus = choose_corpus(corpus)
-    logger.info("Generate Keywords...")
-    keywords = generate_search_keywords(corpus)
-    query = build_arxiv_query(keywords, args.max_keywords)
-
-    logger.info("Retrieving Arxiv papers...")
     if args.use_llm_api:
         set_global_llm(api_key=args.openai_api_key, base_url=args.openai_api_base, model=args.model_name,
-                       lang=args.language)
+                    lang=args.language)
+    logger.info("Generate Keywords...")
+    
+
+    logger.info("Retrieving Arxiv papers...")
+
+    papers = get_arxiv_paper(args.arxiv_query, args.debug, max_results=args.max_paper_num)
     if args.use_llm_keywords:
-        papers = get_arxiv_paper(query, args.debug, max_results=args.max_paper_num)
-    else:
-        papers = get_arxiv_paper(args.arxiv_query, args.debug, max_results=args.max_paper_num)
+        keywords = generate_search_keywords(corpus)
+        query = build_arxiv_query(keywords, args.max_keywords)
+        papers += get_arxiv_paper(query, args.debug, max_results=args.max_paper_num)
+        unique_papers_dict = {paper.title: paper for paper in papers}
+        papers = list(unique_papers_dict.values())
+
+    if args.use_coarse_grained_recommendation:
+        papers_coarse = get_arxiv_paper(args.domain, args.debug, max_results=args.max_paper_num)
 
     if len(papers) == 0:
         logger.info("No new papers found. Yesterday maybe a holiday and no one submit their work :). If this is not the case, please check the ARXIV_QUERY.")
         if not args.send_empty:
-          exit(0)
+            exit(0)
     else:
         logger.info("Reranking papers...")
         papers = rerank_paper(papers, corpus)
+        papers_coarse = rerank_paper(papers_coarse, corpus)
         if args.max_paper_num != -1:
             papers = papers[:args.max_paper_num]
-        if args.use_llm_api:
-            logger.info("Using OpenAI API as global LLM.")
-            set_global_llm(api_key=args.openai_api_key, base_url=args.openai_api_base, model=args.model_name, lang=args.language)
-        else:
-            logger.info("Using Local LLM as global LLM.")
-            set_global_llm(lang=args.language)
+            papers_coarse = papers_coarse[:2]
+        # if args.use_llm_api:
+        #     logger.info("Using OpenAI API as global LLM.")
+        #     set_global_llm(api_key=args.openai_api_key, base_url=args.openai_api_base, model=args.model_name, lang=args.language)
+        # else:
+        #     logger.info("Using Local LLM as global LLM.")
+        #     set_global_llm(lang=args.language)
     # 测试标签是否生成
     if args.debug:
         for paper in papers:
             logger.debug(f"Paper: {paper.title}")
             logger.debug(f"Labels: {paper.labels}")
     # end
-    html = render_email(papers)
+    html = render_email(papers, papers_coarse = papers_coarse)
     logger.info("Sending email...")
+
     send_email(args.sender, args.receiver, args.sender_password, args.smtp_server, args.smtp_port, html)
     logger.success("Email sent successfully! If you don't receive the email, please check the configuration and the junk box.")

@@ -31,8 +31,12 @@
             background-color: #f9f9f9;
             border-radius: 10px;
             text-align: center;
+            width: 160px;
+            position: absolute;
         }
-
+        .h1{
+            color:#112f53;
+        }
         .sidebar a {
             /* 导航栏文字 */
             display: block;
@@ -123,8 +127,8 @@
         <div class="header-row">
             <!-- 左侧导航栏 -->
             <div class="sidebar">
-                <a href="{field_recommend}">专业领域推荐</a>
-                <a href="{article_recommend}">热门文章推荐</a>
+                <a href="#article_recommend">最新相关论文</a>
+                <a href="#field_recommend">领域最新推荐</a>
             </div>
 
             <!-- 居中的Logo -->
@@ -133,9 +137,15 @@
             </div>
         </div>
 
+        <h1 id="article_recommend" style="color:#112f53">最新相关论文</h1>
+        
         <!-- 原始内容占位符 -->
-        <div class="content-wrapper">
+        <div class="content-wrapper" >
             __CONTENT__
+        </div>
+        <h1 id="field_recommend" style="color:#112f53">领域最新推荐</h1>
+        <div class="content-wrapper">
+            __CONTENT_FIELD__
         </div>
     </div>
 
